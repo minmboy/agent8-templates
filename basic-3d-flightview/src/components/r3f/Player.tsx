@@ -35,6 +35,10 @@ const Player = () => {
 
   // IMPORTANT: rigidBodyPlayerRef.current type is RigidBody
   const rigidBodyPlayerRef = useRef<RigidBodyPlayerRef>(null);
+
+  // To detect position changes and prevent unnecessary store updates
+  const lastPositionRef = useRef({ x: 0, y: 0, z: 0 });
+
   const canShootTimestamp = useRef(0);
   const lastFramePressedReset = useRef(false);
 
@@ -60,7 +64,21 @@ const Player = () => {
     if (!playerRigidBody) return;
 
     const position = playerRigidBody.translation();
-    setLocalPlayerPosition(position.x, position.y, position.z);
+
+    // Position store optimization:
+    // Updating the store every frame would cause excessive re-renders in all subscribers.
+    // To prevent this, we only update when the position change exceeds a meaningful threshold.
+    const lastPos = lastPositionRef.current;
+    const dx = position.x - lastPos.x;
+    const dy = position.y - lastPos.y;
+    const dz = position.z - lastPos.z;
+    const distanceSq = dx * dx + dy * dy + dz * dz;
+
+    // Threshold: 0.0001 = (0.01)^2 = 1cm squared distance (assuming 1 unit = 1 meter)
+    if (distanceSq > 0.0001) {
+      lastPositionRef.current = { x: position.x, y: position.y, z: position.z };
+      setLocalPlayerPosition(position.x, position.y, position.z);
+    }
   });
 
   // IMPORTANT: Update local player speed calculation based on position changes over 5 frames
